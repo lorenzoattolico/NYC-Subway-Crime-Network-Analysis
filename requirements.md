@@ -1,0 +1,9 @@
+networkx>=2.8.0
+pandas>=1.4.0
+matplotlib>=3.5.0
+numpy>=1.22.0
+geopandas>=0.10.0
+scikit-learn>=1.0.0
+scipy>=1.8.0
+seaborn>=0.11.0
+contextily>=1.2.0

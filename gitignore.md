@@ -1,0 +1,71 @@
+# Data files
+data/*.csv
+data/*.shp
+data/*.shx
+data/*.dbf
+data/*.prj
+data/*.sbn
+data/*.sbx
+data/*.xml
+data/*.cpg
+
+# Result files
+results/*.csv
+results/*.png
+results/*.pdf
+results/*.rds
+
+# Logs
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rapp.history
+.Rprofile
+.Renviron
+.httr-oauth
+*.knit.md
+*_cache/
+/cache/
+*.utf8.md
+*.html
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
