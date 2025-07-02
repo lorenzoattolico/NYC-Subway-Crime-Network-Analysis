@@ -42,7 +42,7 @@ def load_subway_complex_data(file_path):
 
 def load_crime_data(crime_patterns=None, data_dir='data'):
     """
-    Load crime data from files matching patterns or create simulated data if no files found
+    Load crime data from files matching patterns
     
     Args:
         crime_patterns: List of file patterns to search for (e.g., ['nypd_crimini_*.csv'])
@@ -78,54 +78,9 @@ def load_crime_data(crime_patterns=None, data_dir='data'):
             logger.info(f"Combined {len(df_crimes)} crime records from {len(df_list)} files")
             return df_crimes
     
-    # If no files found or loading failed, create simulated data
-    logger.warning("No crime data files found. Creating simulated crime data.")
-    return create_simulated_crime_data(load_subway_complex_data(os.path.join(data_dir, 'nyc_subway_complexes.csv')))
-
-def create_simulated_crime_data(complex_df):
-    """Create simulated crime data based on subway complex locations"""
-    logger.info("Creating simulated crime data for demonstration purposes")
-    np.random.seed(42)  # For reproducibility
-    
-    # Generate random crimes around subway stations
-    fake_crimes = []
-    
-    for _, station in complex_df.iterrows():
-        # Generate random number of crimes for this station
-        num_crimes = np.random.randint(5, 50)
-        
-        for _ in range(num_crimes):
-            # Generate random offset within 500m
-            max_lat_offset = 0.005  # Approx 500m in latitude
-            max_lon_offset = 0.005  # Approximation for longitude
-            
-            lat_offset = np.random.uniform(-max_lat_offset, max_lat_offset)
-            lon_offset = np.random.uniform(-max_lon_offset, max_lon_offset)
-            
-            crime_lat = station['Latitude'] + lat_offset
-            crime_lon = station['Longitude'] + lon_offset
-            
-            # Generate random crime type
-            crime_type = np.random.choice(['FELONY', 'MISDEMEANOR', 'VIOLATION'], p=[0.3, 0.5, 0.2])
-            
-            # Generate random date and time
-            year = np.random.randint(2020, 2025)
-            month = np.random.randint(1, 13)
-            day = np.random.randint(1, 29)
-            hour = np.random.randint(0, 24)
-            minute = np.random.randint(0, 60)
-            
-            fake_crimes.append({
-                'latitude': crime_lat,
-                'longitude': crime_lon,
-                'law_cat_cd': crime_type,
-                'cmplnt_fr_dt': f"{year}-{month:02d}-{day:02d}",
-                'cmplnt_to_tm': f"{hour:02d}:{minute:02d}:00"
-            })
-    
-    df_crimes = pd.DataFrame(fake_crimes)
-    logger.info(f"Created {len(df_crimes)} simulated crime records")
-    return df_crimes
+    # If no files found or loading failed
+    logger.error("No crime data files found. Please provide valid crime data files.")
+    raise FileNotFoundError("No crime data files found in the specified directory.")
 
 def standardize_crime_coordinates(df_crimes):
     """Standardize coordinate column names and filter for valid coordinates"""
@@ -150,9 +105,7 @@ def standardize_crime_coordinates(df_crimes):
     
     if lat_col is None or lon_col is None:
         logger.error("Could not identify coordinate columns in crime data")
-        # Create placeholder columns
-        df_crimes['latitude'] = np.nan
-        df_crimes['longitude'] = np.nan
+        raise ValueError("Crime data must contain latitude and longitude columns")
     else:
         # Standardize coordinate columns
         df_crimes['latitude'] = df_crimes[lat_col]
@@ -187,8 +140,8 @@ def add_time_dimensions(df_crimes):
                 # Alternative extraction if standard format fails
                 df_crimes['hour'] = df_crimes[time_col].str.extract(r'^(\d{1,2})').astype(float)
             except:
-                logger.warning(f"Could not extract hour from {time_col}. Creating random hours.")
-                df_crimes['hour'] = np.random.randint(0, 24, size=len(df_crimes))
+                logger.warning(f"Could not extract hour from {time_col}.")
+                return df_crimes
         
         # Create time period categories
         df_crimes['time_period'] = pd.cut(
@@ -374,72 +327,38 @@ def aggregate_temporal_crime_data(gdf_near_crimes):
 def load_poverty_data(nta_file, complex_df, data_dir='data'):
     """
     Load neighborhood poverty data from shapefile
-    If file not found, create simulated poverty data
     """
     nta_path = os.path.join(data_dir, nta_file)
     
-    try:
-        if os.path.exists(nta_path):
-            logger.info(f"Loading NTA shapefile from {nta_path}")
-            nta = gpd.read_file(nta_path)
-            
-            # Calculate poverty percentage
-            nta['poverty_pct'] = (nta['poor'] / nta['poptot']) * 100
-            logger.info(f"Loaded {len(nta)} Neighborhood Tabulation Areas (NTAs)")
-            
-            # Create GeoDataFrame from complex data
-            gdf_complexes = create_complex_geodataframe(complex_df)
-            
-            # Spatial join to assign NTA data to complexes
-            logger.info("Performing spatial join to assign complexes to neighborhoods")
-            complexes_with_nta = gpd.sjoin(
-                gdf_complexes,
-                nta[['ntacode', 'ntaname', 'poverty_pct', 'poptot', 'poor', 'geometry']],
-                how='left',
-                predicate='within'
-            )
-            
-            # Extract poverty data
-            poverty_data = complexes_with_nta[[
-                'Complex_ID', 'ntacode', 'ntaname', 'poverty_pct', 'poptot', 'poor'
-            ]]
-            
-            logger.info("Successfully added poverty data to subway complexes")
-            return poverty_data
-        else:
-            logger.warning(f"NTA shapefile {nta_path} not found")
-            return create_simulated_poverty_data(complex_df)
-    except Exception as e:
-        logger.error(f"Error loading poverty data: {e}")
-        return create_simulated_poverty_data(complex_df)
-
-def create_simulated_poverty_data(complex_df):
-    """Create simulated poverty data for subway complexes"""
-    logger.warning("Creating simulated poverty data")
-    np.random.seed(42)  # For reproducibility
+    if not os.path.exists(nta_path):
+        logger.error(f"NTA shapefile {nta_path} not found")
+        raise FileNotFoundError(f"Poverty data file not found: {nta_path}")
     
-    # Create simulated NTA codes and names
-    nta_codes = [f"NTA{i:03d}" for i in range(1, 51)]
-    nta_names = [f"Neighborhood {i}" for i in range(1, 51)]
+    logger.info(f"Loading NTA shapefile from {nta_path}")
+    nta = gpd.read_file(nta_path)
     
-    # Assign random NTAs to complexes
-    complex_df['ntacode'] = np.random.choice(nta_codes, size=len(complex_df))
-    complex_df['ntaname'] = [nta_names[nta_codes.index(code)] for code in complex_df['ntacode']]
+    # Calculate poverty percentage
+    nta['poverty_pct'] = (nta['poor'] / nta['poptot']) * 100
+    logger.info(f"Loaded {len(nta)} Neighborhood Tabulation Areas (NTAs)")
     
-    # Generate simulated poverty data
-    poverty_data = pd.DataFrame({
-        'Complex_ID': complex_df['Complex_ID'],
-        'ntacode': complex_df['ntacode'],
-        'ntaname': complex_df['ntaname'],
-        'poverty_pct': np.random.uniform(5, 35, size=len(complex_df)),  # 5% to 35%
-        'poptot': np.random.randint(5000, 50000, size=len(complex_df)),
-        'poor': [0] * len(complex_df)  # Will calculate after
-    })
+    # Create GeoDataFrame from complex data
+    gdf_complexes = create_complex_geodataframe(complex_df)
     
-    # Calculate number of people in poverty
-    poverty_data['poor'] = (poverty_data['poverty_pct'] / 100 * poverty_data['poptot']).astype(int)
+    # Spatial join to assign NTA data to complexes
+    logger.info("Performing spatial join to assign complexes to neighborhoods")
+    complexes_with_nta = gpd.sjoin(
+        gdf_complexes,
+        nta[['ntacode', 'ntaname', 'poverty_pct', 'poptot', 'poor', 'geometry']],
+        how='left',
+        predicate='within'
+    )
     
-    logger.info(f"Created simulated poverty data for {len(poverty_data)} complexes")
+    # Extract poverty data
+    poverty_data = complexes_with_nta[[
+        'Complex_ID', 'ntacode', 'ntaname', 'poverty_pct', 'poptot', 'poor'
+    ]]
+    
+    logger.info("Successfully added poverty data to subway complexes")
     return poverty_data
 
 def create_integrated_dataset(complex_df, complex_crime_pivot, poverty_data, temporal_aggregations=None):
