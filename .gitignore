@@ -1,13 +1,3 @@
-# Data files
-data/*.csv
-data/*.shp
-data/*.shx
-data/*.dbf
-data/*.prj
-data/*.sbn
-data/*.sbx
-data/*.xml
-data/*.cpg
 
 # Result files
 results/*.csv
